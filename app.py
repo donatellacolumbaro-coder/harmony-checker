@@ -1,102 +1,67 @@
 import time
+import os
 
 class Partitura:
-    """
-    Questa classe rappresenta una Partitura (Score) generica.
-    Può essere usata per corali, sinfonie, sonate o brani pop.
-    """
-    def __init__(self, titolo, compositore, tempo_bpm=120):
+    def __init__(self, titolo="Nuova Partitura", compositore="Sconosciuto", bpm=120):
         self.titolo = titolo
         self.compositore = compositore
-        self.tempo_bpm = tempo_bpm  # Battiti Per Minuto (velocità)
-        self.strumenti = []  # Lista che conterrà i righi della partitura
+        self.bpm = bpm
+        self.strumenti = []
 
-    def aggiungi_strumento(self, nome_strumento, chiave):
-        """
-        Aggiunge un rigo strumentale vuoto alla partitura.
-        Es: nome="Violino", chiave="Sol"
-        """
-        nuovo_strumento = {
-            "nome": nome_strumento,
-            "chiave": chiave,
-            "note": [] # Lista delle note per questo strumento
-        }
-        self.strumenti.append(nuovo_strumento)
-        print(f"➕ Strumento aggiunto: {nome_strumento} (Chiave di {chiave})")
+    def aggiungi_strumento(self, nome, chiave):
+        """Crea un nuovo rigo nella partitura."""
+        self.strumenti.append({"nome": nome, "chiave": chiave, "note": []})
 
-    def aggiungi_nota(self, nome_strumento, nota, durata_quarti):
+    def carica_da_testo(self, nome_strumento, testo_note):
         """
-        Aggiunge una nota a uno specifico strumento.
-        durata_quarti: 1 = semiminima (un quarto), 2 = minima (due quarti), etc.
+        Carica le note da una stringa. 
+        Formato: Nota:Durata, Nota:Durata (es. Do4:1, Re4:1)
         """
-        strumento_trovato = False
-        for strumento in self.strumenti:
-            if strumento["nome"] == nome_strumento:
-                strumento["note"].append((nota, durata_quarti))
-                strumento_trovato = True
-                break
-        
-        if not strumento_trovato:
-            print(f"⚠️ Errore: Lo strumento '{nome_strumento}' non esiste nella partitura.")
+        for s in self.strumenti:
+            if s["nome"] == nome_strumento:
+                parti = testo_note.replace(" ", "").split(",")
+                for p in parti:
+                    if ":" in p:
+                        n, d = p.split(":")
+                        s["note"].append((n, float(d)))
+                print(f"✅ Note caricate in: {nome_strumento}")
+                return
+        print(f"❌ Strumento {nome_strumento} non trovato.")
 
     def play(self):
-        """
-        IL TASTO PLAY.
-        Simula la riproduzione della partitura calcolando i tempi reali in base ai BPM.
-        """
-        print(f"\n{'='*40}")
-        print(f"▶️  PLAY: {self.titolo} - {self.compositore}")
-        print(f"    Tempo: {self.tempo_bpm} BPM")
-        print(f"{'='*40}")
-        
-        # Calcolo quanto dura un "quarto" in secondi reali
-        secondi_per_quarto = 60 / self.tempo_bpm
+        """Il tasto PLAY: riproduce la musica nel terminale."""
+        print(f"\n▶️  ESECUZIONE: {self.titolo} ({self.compositore})")
+        print(f"⏱️  Tempo: {self.bpm} BPM")
+        print("-" * 30)
 
-        if not self.strumenti:
-            print("🔇 La partitura è vuota!")
+        secondi_per_quarto = 60 / self.bpm
+
+        if not self.strumenti or not self.strumenti[0]["note"]:
+            print("🔇 Nulla da suonare. Carica delle note!")
             return
 
-        # SIMULAZIONE PLAYBACK
-        # Per semplicità in console, riproduciamo la linea del primo strumento inserito
-        strumento_lead = self.strumenti[0]
-        print(f"🔊 Ascolto traccia: {strumento_lead['nome']}...\n")
-
-        for i, (nota, durata) in enumerate(strumento_lead["note"], 1):
-            durata_reale = durata * secondi_per_quarto
+        # Suoniamo il primo strumento caricato
+        strumento = self.strumenti[0]
+        for nota, durata in strumento["note"]:
+            # Visualizzazione grafica
+            barra = "█" * int(durata * 4)
+            print(f"   ♪ {nota:<5} {barra}")
             
-            # Visualizzazione "Player"
-            barra_avanzamento = "▓" * int(durata * 4) # Grafica semplice per la durata
-            print(f"[{i}] 🎵 {nota:<4} (Durata: {durata}q) {barra_avanzamento}")
-            
-            # Il programma attende qui, simulando il suono
-            time.sleep(durata_reale)
+            # Aspetta il tempo reale della nota
+            time.sleep(durata * secondi_per_quarto)
 
-        print("\n⏹️  STOP - Fine esecuzione.")
-        print(f"{'='*40}\n")
+        print("-" * 30)
+        print("⏹️  Fine.\n")
 
-# --- ZONA DI TEST (ESEMPIO D'USO) ---
-
+# --- AVVIO DELL'APP ---
 if __name__ == "__main__":
-    # 1. Creazione della Partitura (Generica, non più solo Corale)
-    # Impostiamo un tempo veloce (140 BPM)
-    mia_partitura = Partitura("Inno alla Gioia (Demo)", "L. van Beethoven", tempo_bpm=140)
+    # 1. Inizializziamo l'app
+    app = Partitura("Il mio brano", "Studente", bpm=120)
+    app.aggiungi_strumento("Piano", "Sol")
 
-    # 2. Aggiunta degli strumenti (Righi)
-    mia_partitura.aggiungi_strumento("Flauto", "Sol")
-    mia_partitura.aggiungi_strumento("Violoncello", "Fa")
+    # 2. Carichiamo la musica (puoi cambiare questa stringa con quello che vuoi)
+    musica = "Do4:1, Mi4:1, Sol4:1, Do5:2, Sol4:1, Mi4:1, Do4:2"
+    app.carica_da_testo("Piano", musica)
 
-    # 3. Scrittura delle note (Melodia: Mi - Mi - Fa - Sol - Sol - Fa - Mi - Re)
-    # Formato: (Nome Nota, Durata in quarti)
-    note_beethoven = [
-        ("Mi", 1), ("Mi", 1), ("Fa", 1), ("Sol", 1),
-        ("Sol", 1), ("Fa", 1), ("Mi", 1), ("Re", 1),
-        ("Do", 1), ("Do", 1), ("Re", 1), ("Mi", 1),
-        ("Mi", 1.5), ("Re", 0.5), ("Re", 2) # Finale della frase
-    ]
-
-    # Inseriamo le note nel Flauto
-    for n, d in note_beethoven:
-        mia_partitura.aggiungi_nota("Flauto", n, d)
-
-    # 4. Premiamo Play
-    mia_partitura.play()
+    # 3. Premiamo Play
+    app.play()
