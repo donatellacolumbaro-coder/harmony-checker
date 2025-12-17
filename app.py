@@ -1,67 +1,65 @@
+import streamlit as st
 import time
 import os
 
-class Partitura:
-    def __init__(self, titolo="Nuova Partitura", compositore="Sconosciuto", bpm=120):
-        self.titolo = titolo
-        self.compositore = compositore
-        self.bpm = bpm
-        self.strumenti = []
+# Proviamo a importare music21 per i file XML
+try:
+    import music21
+except ImportError:
+    st.error("Libreria music21 mancante. Aggiungila al file requirements.txt")
 
-    def aggiungi_strumento(self, nome, chiave):
-        """Crea un nuovo rigo nella partitura."""
-        self.strumenti.append({"nome": nome, "chiave": chiave, "note": []})
+# Configurazione della pagina
+st.set_page_config(page_title="Harmony XML Player", page_icon="🎼")
+
+class Partitura:
+    def __init__(self, titolo="Nuova Partitura", bpm=120):
+        self.titolo = titolo
+        self.bpm = bpm
+        self.strumenti = {}
 
     def carica_da_testo(self, nome_strumento, testo_note):
-        """
-        Carica le note da una stringa. 
-        Formato: Nota:Durata, Nota:Durata (es. Do4:1, Re4:1)
-        """
-        for s in self.strumenti:
-            if s["nome"] == nome_strumento:
-                parti = testo_note.replace(" ", "").split(",")
-                for p in parti:
-                    if ":" in p:
-                        n, d = p.split(":")
-                        s["note"].append((n, float(d)))
-                print(f"✅ Note caricate in: {nome_strumento}")
-                return
-        print(f"❌ Strumento {nome_strumento} non trovato.")
+        self.strumenti[nome_strumento] = []
+        parti = testo_note.replace(" ", "").split(",")
+        for p in parti:
+            if ":" in p:
+                n, d = p.split(":")
+                self.strumenti[nome_strumento].append((n, float(d)))
+        return True
 
-    def play(self):
-        """Il tasto PLAY: riproduce la musica nel terminale."""
-        print(f"\n▶️  ESECUZIONE: {self.titolo} ({self.compositore})")
-        print(f"⏱️  Tempo: {self.bpm} BPM")
-        print("-" * 30)
-
-        secondi_per_quarto = 60 / self.bpm
-
-        if not self.strumenti or not self.strumenti[0]["note"]:
-            print("🔇 Nulla da suonare. Carica delle note!")
-            return
-
-        # Suoniamo il primo strumento caricato
-        strumento = self.strumenti[0]
-        for nota, durata in strumento["note"]:
-            # Visualizzazione grafica
-            barra = "█" * int(durata * 4)
-            print(f"   ♪ {nota:<5} {barra}")
+    def carica_da_xml(self, file_caricato):
+        try:
+            # Salviamo temporaneamente il file per farlo leggere a music21
+            with open("temp.xml", "wb") as f:
+                f.write(file_caricato.getbuffer())
             
-            # Aspetta il tempo reale della nota
-            time.sleep(durata * secondi_per_quarto)
+            score = music21.converter.parse("temp.xml")
+            self.titolo = score.metadata.title if score.metadata.title else "Brano XML"
+            
+            for part in score.parts:
+                nome = part.partName if part.partName else "Strumento"
+                self.strumenti[nome] = []
+                for nota in part.recurse().notes:
+                    if nota.isNote:
+                        self.strumenti[nome].append((nota.nameWithOctave, nota.duration.quarterLength))
+            return True
+        except Exception as e:
+            st.error(f"Errore nella lettura dell'XML: {e}")
+            return False
 
-        print("-" * 30)
-        print("⏹️  Fine.\n")
+# --- INTERFACCIA STREAMLIT ---
+st.title("🎼 Harmony XML & Text Player")
+st.write("Carica un file MusicXML o inserisci le note manualmente.")
 
-# --- AVVIO DELL'APP ---
-if __name__ == "__main__":
-    # 1. Inizializziamo l'app
-    app = Partitura("Il mio brano", "Studente", bpm=120)
-    app.aggiungi_strumento("Piano", "Sol")
+# Sidebar per le impostazioni
+bpm = st.sidebar.slider("Velocità (BPM)", 60, 200, 120)
+app = Partitura(bpm=bpm)
 
-    # 2. Carichiamo la musica (puoi cambiare questa stringa con quello che vuoi)
-    musica = "Do4:1, Mi4:1, Sol4:1, Do5:2, Sol4:1, Mi4:1, Do4:2"
-    app.carica_da_testo("Piano", musica)
+# Scelta della modalità di inserimento
+modalita = st.radio("Scegli come inserire la musica:", ("Inserimento Manuale", "Carica file XML"))
 
-    # 3. Premiamo Play
-    app.play()
+musica_pronta = False
+
+if modalita == "Inserimento Manuale":
+    musica_input = st.text_area("Note (Nota:Durata)", "Do4:1, Mi4:1, Sol4:1, Do5:2")
+    if st.button("Carica Note"):
+        musica_pronta = app.carica_da_testo("Piano", musica_input)
